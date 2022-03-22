@@ -8,38 +8,34 @@
 
 from __future__ import division
 
-import warnings
-from random import Random
+import base64
+import colorsys
 import io
 import os
 import re
-import base64
 import sys
-import colorsys
+import warnings
+from operator import itemgetter
+from random import Random
+from xml.sax import saxutils
+from collections import Counter
+
+import gensim
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-from operator import itemgetter
-from xml.sax import saxutils
-
-from PIL import Image
-from PIL import ImageColor
-from PIL import ImageDraw
-from PIL import ImageFilter
-from PIL import ImageFont
-
-import gensim
 from k_means_constrained import KMeansConstrained
-
+from PIL import Image, ImageColor, ImageDraw, ImageFilter, ImageFont
 
 from .query_integral_image import query_integral_image
-from .tokenization import unigrams_and_bigrams, process_tokens
+from .tokenization import process_tokens, unigrams_and_bigrams, word_tokenize
 
 FILE = os.path.dirname(__file__)
 FONT_PATH = os.environ.get('FONT_PATH', os.path.join(FILE, 'DroidSansMono.ttf'))
 STOPWORDS = set(map(str.strip, open(os.path.join(FILE, 'stopwords')).readlines()))
+STOPWORDS_TH = set(map(str.strip, open(os.path.join(FILE, 'thstopwords')).readlines()))
+
 
 
 class IntegralOccupancyMap(object):
@@ -89,7 +85,6 @@ class colormap_color_func(object):
 
     """
     def __init__(self, colormap):
-        import matplotlib.pyplot as plt
         self.colormap = plt.cm.get_cmap(colormap)
 
     def __call__(self, word, font_size, position, orientation,
@@ -326,6 +321,7 @@ class WordCloud(object):
         self.color_func = color_func or colormap_color_func(colormap)
         self.max_words = max_words
         self.stopwords = stopwords if stopwords is not None else STOPWORDS
+        self.stopwordsth = stopwords if stopwords is not None else STOPWORDS_TH
         self.min_font_size = min_font_size
         self.font_step = font_step
         self.regexp = regexp
@@ -583,7 +579,7 @@ class WordCloud(object):
         
         return self
 
-    def process_text(self, text, lang='EN'):
+    def process_text(self, text, lang='EN', most_common='60'):
         """Splits a long text into words, eliminates the stopwords.
 
         Parameters
@@ -606,7 +602,11 @@ class WordCloud(object):
         """
         if lang == 'TH':
             # TODO
-            pass
+            stopwords = set([i for i in self.stopwordsth])
+            words = word_tokenize(text)
+            words = [word for word in words if word not in stopwords and word.isnumeric() == False]
+            word_counter = Counter((word for word in words)).most_common(most_common)
+            word_counts = dict(word_counter)
 
         elif lang == 'EN':
 
@@ -636,7 +636,7 @@ class WordCloud(object):
 
         return word_counts
 
-    def generate_from_text(self, text, lang='EN'):
+    def generate_from_text(self, text, lang='EN', tsne_plot=None):
         """Generate wordcloud from text.
 
         The input "text" is expected to be a natural text. If you pass a sorted
@@ -654,10 +654,11 @@ class WordCloud(object):
         self
         """
         words = self.process_text(text, lang)
-        self.generate_from_frequencies(words)
+        ###
+        self.generate_from_frequencies(words, tsne_plot)
         return self
 
-    def generate(self, text, lang='EN'):
+    def generate(self, text, lang='EN', tsne_plot=None):
         """Generate wordcloud from text.
 
         The input "text" is expected to be a natural text. If you pass a sorted
@@ -672,7 +673,7 @@ class WordCloud(object):
         -------
         self
         """
-        return self.generate_from_text(text, lang)
+        return self.generate_from_text(text, lang, tsne_plot)
 
     def _check_generated(self):
         """Check if ``layout_`` was computed, otherwise raise error."""
@@ -1115,7 +1116,7 @@ def generate_freq(focus_w_list, word_count_dic, focus_model, NUM_CLUSTERS, size_
         k_means_freq.append((i,lst))
     return k_means_freq
 
-def generate_cloud(font_path,freq,max_font,fix_width,fix_height):
+def generate_cloud(font_path, freq, max_font, fix_width, fix_height):
     lis = []
     topics2 = freq
     clouds = []
@@ -1142,7 +1143,6 @@ def generate_cloud(font_path,freq,max_font,fix_width,fix_height):
         lis.append(clouds[i])
         plt.gca().imshow(clouds[i],aspect="auto",interpolation = "bilinear")  # blur it right here
         plt.gca().axis('off')
-
 
     plt.subplots_adjust(wspace=0, hspace=0)
     plt.axis('off')

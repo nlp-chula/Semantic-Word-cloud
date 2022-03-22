@@ -1,8 +1,10 @@
 from __future__ import division
-from itertools import tee
-from operator import itemgetter
+
 from collections import defaultdict
+from itertools import tee
 from math import log
+from operator import itemgetter
+from pythainlp.util.trie import Trie, dict_trie
 
 
 def l(k, n, x):  # noqa: E741, E743
@@ -136,3 +138,42 @@ def process_tokens(words, normalize_plurals=True):
         for plural, singular in merged_plurals.items():
             standard_cases[plural] = standard_cases[singular.lower()]
     return fused_cases, standard_cases
+
+
+def word_tokenize(
+    text: str,
+    custom_dict: Trie = None,
+    # engine: str = DEFAULT_WORD_TOKENIZE_ENGINE,
+    keep_whitespace: bool = True,
+) -> List[str]:
+
+    """
+    Word tokenizer.
+    (override from PyThaiNLP.)
+
+    Tokenizes running text into words (list of strings).
+
+    :param str text: text to be tokenized
+
+    :param pythainlp.util.Trie custom_dict: dictionary trie
+    :param bool keep_whitespace: True to keep whitespaces, a common mark
+                                 for end of phrase in Thai.
+                                 Otherwise, whitespaces are omitted.
+    :return: list of words
+    :rtype: list[str]
+    """
+
+    if not text or not isinstance(text, str):
+        return []
+
+    segments = []
+    
+    from pythainlp.tokenize.newmm import segment
+
+    segments = segment(text, custom_dict)
+
+    if not keep_whitespace:
+        segments = [token.strip(" ") for token in segments if token.strip(" ")]
+
+    return segments
+

@@ -18,7 +18,7 @@ from heapq import heappop, heappush
 from typing import Generator, List
 
 from pythainlp.tokenize import DEFAULT_WORD_DICT_TRIE
-from pythainlp.util import Trie
+from .trie import Trie
 
 from pythainlp.tokenize.tcc import tcc_pos
 
